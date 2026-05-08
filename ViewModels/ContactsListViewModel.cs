@@ -7,15 +7,13 @@ using PhoneBook.Services;
 namespace PhoneBook.ViewModels
 {
     /// <summary>
-    /// ViewModel главного окна.
-    /// Зарегистрирован как Transient в IoC-контейнере:
-    /// каждый раз создаётся новый экземпляр при навигации.
+    /// ViewModel экрана списка контактов.
+    /// Зарегистрирован как Transient: новый экземпляр при каждом переходе.
     /// </summary>
-    public class MainViewModel : ObservableObject
+    public class ContactsListViewModel : ObservableObject
     {
         public ObservableCollection<Contact> Contacts { get; }
-
-        // Зависимость от сервиса диалогов — внедряется через конструктор (Constructor Injection)
+        private readonly INavigationService _navigation;
         private readonly IDialogService _dialogService;
 
         private string _name = string.Empty;
@@ -41,23 +39,21 @@ namespace PhoneBook.ViewModels
 
         public ICommand AddCommand { get; }
         public ICommand DeleteCommand { get; }
+        public ICommand EditCommand { get; }
 
-        /// <summary>
-        /// Конструктор с внедрением зависимости.
-        /// DI-контейнер автоматически передаст реализацию IDialogService.
-        /// </summary>
-        public MainViewModel(IDialogService dialogService)
+        public ContactsListViewModel(INavigationService navigation, IDialogService dialogService)
         {
-            _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
+            _navigation = navigation;
+            _dialogService = dialogService;
             Contacts = new ObservableCollection<Contact>();
 
             AddCommand = new RelayCommand(AddContact);
             DeleteCommand = new RelayCommand<Contact?>(DeleteContact);
+            EditCommand = new RelayCommand<Contact?>(EditContact);
         }
 
         private void AddContact()
         {
-            // Валидация: проверка на дубликат по номеру телефона
             if (Contacts.Any(c => c.Phone == Phone))
             {
                 _dialogService.ShowWarning("Контакт с таким номером уже существует!", "Дубликат");
@@ -65,7 +61,6 @@ namespace PhoneBook.ViewModels
             }
 
             var contact = new Contact(Name, Phone);
-
             if (!contact.IsValid)
             {
                 _dialogService.ShowError(contact.ValidationError ?? "Ошибка валидации", "Некорректные данные");
@@ -75,23 +70,24 @@ namespace PhoneBook.ViewModels
             Contacts.Add(contact);
             Name = string.Empty;
             Phone = string.Empty;
-
             _dialogService.ShowInfo($"Контакт '{contact.Name}' успешно добавлен", "Успех");
         }
 
         private void DeleteContact(Contact? contact)
         {
-            if (contact == null)
-                return;
-
-            // Запрос подтверждения перед удалением
+            if (contact == null) return;
             if (!_dialogService.ShowConfirmation($"Удалить контакт '{contact.Name}'?", "Подтверждение"))
-            {
-                return; // Пользователь отменил удаление
-            }
+                return;
 
             Contacts.Remove(contact);
             _dialogService.ShowInfo("Контакт удалён", "Успех");
+        }
+
+        private void EditContact(Contact? contact)
+        {
+            if (contact == null) return;
+            // Навигация к экрану редактирования с передачей контакта
+            _navigation.NavigateTo<ContactEditViewModel>(contact);
         }
     }
 }

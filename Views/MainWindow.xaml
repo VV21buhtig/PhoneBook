@@ -1,41 +1,17 @@
 ﻿<Window x:Class="PhoneBook.Views.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Телефонная книга" Height="450" Width="600">
-
-    <Grid Margin="10">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-        </Grid.RowDefinitions>
-
-        <TextBox Grid.Row="0" Margin="0,5" 
-                 Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}"/>
-
-        <TextBox Grid.Row="1" Margin="0,5" 
-                 Text="{Binding Phone, UpdateSourceTrigger=PropertyChanged}"/>
-
-        <TextBlock Grid.Row="2" Foreground="Red" Margin="0,5" 
-                   Text="{Binding InputError}" />
-
-        <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,10">
-            <Button Content="Добавить" Width="100" Margin="0,0,10,0" 
-                    Command="{Binding AddCommand}"/>
-            <Button Content="Удалить" Width="100" 
-                    Command="{Binding DeleteCommand}" 
-                    CommandParameter="{Binding SelectedContact}"/>
+        Title="Телефонная книга" Height="450" Width="800">
+    <DockPanel>
+        <!-- Меню навигации -->
+        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Background="LightGray" Margin="5">
+            <Button Content="Контакты" Command="{Binding ShowContactsCommand}" 
+                    Margin="5" Padding="10,2" Width="100"/>
+            <Button Content="О программе" Command="{Binding ShowAboutCommand}" 
+                    Margin="5" Padding="10,2" Width="100"/>
         </StackPanel>
 
-        <DataGrid Grid.Row="4" AutoGenerateColumns="False" IsReadOnly="True"
-                  ItemsSource="{Binding Contacts}" 
-                  SelectedItem="{Binding SelectedContact}">
-            <DataGrid.Columns>
-                <DataGridTextColumn Header="Имя" Binding="{Binding Name}" Width="*"/>
-                <DataGridTextColumn Header="Телефон" Binding="{Binding Phone}" Width="*"/>
-            </DataGrid.Columns>
-        </DataGrid>
-    </Grid>
+        <!-- Область контента: автоматически подставляет View по DataTemplate -->
+        <ContentControl Content="{Binding NavigationService.CurrentViewModel}"/>
+    </DockPanel>
 </Window>

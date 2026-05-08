@@ -7,6 +7,7 @@ namespace PhoneBook.Views
         public MainWindow()
         {
             InitializeComponent();
+            // DataContext устанавливается из App.xaml.cs через DI
         }
     }
 }

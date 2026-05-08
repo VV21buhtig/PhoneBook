@@ -1,6 +1,4 @@
 ﻿using PhoneBook.ViewModels;
-using System.ComponentModel;
-using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 
 namespace PhoneBook.Models
@@ -20,21 +18,13 @@ namespace PhoneBook.Models
         public string Name
         {
             get => _name;
-            set
-            {
-                if (Set(ref _name, value))
-                    Validate();
-            }
+            set { if (Set(ref _name, value)) Validate(); }
         }
 
         public string Phone
         {
             get => _phone;
-            set
-            {
-                if (Set(ref _phone, value))
-                    Validate();
-            }
+            set { if (Set(ref _phone, value)) Validate(); }
         }
 
         public bool IsValid { get; private set; } = true;

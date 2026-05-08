@@ -8,13 +8,7 @@ namespace PhoneBook.ViewModels
         private readonly Func<bool>? _canExecute = canExecute;
 
         public bool CanExecute(object? parameter) => _canExecute?.Invoke() ?? true;
-
-        public void Execute(object? parameter)
-        {
-            if (CanExecute(parameter))
-                _execute.Invoke();
-        }
-
+        public void Execute(object? parameter) { if (CanExecute(parameter)) _execute.Invoke(); }
         public event EventHandler? CanExecuteChanged
         {
             add => CommandManager.RequerySuggested += value;
@@ -28,13 +22,7 @@ namespace PhoneBook.ViewModels
         private readonly Predicate<T?>? _canExecute = canExecute;
 
         public bool CanExecute(object? parameter) => _canExecute?.Invoke((T?)parameter) ?? true;
-
-        public void Execute(object? parameter)
-        {
-            if (CanExecute(parameter))
-                _execute.Invoke((T?)parameter);
-        }
-
+        public void Execute(object? parameter) { if (CanExecute(parameter)) _execute.Invoke((T?)parameter); }
         public event EventHandler? CanExecuteChanged
         {
             add => CommandManager.RequerySuggested += value;
