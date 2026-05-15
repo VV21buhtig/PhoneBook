@@ -1,5 +1,6 @@
 ﻿using System.Windows;
 using Microsoft.Extensions.DependencyInjection;
+using PhoneBook.Data;
 using PhoneBook.Services;
 using PhoneBook.ViewModels;
 using PhoneBook.Views;
@@ -16,19 +17,22 @@ namespace PhoneBook
 
             var services = new ServiceCollection();
 
-            // Сервисы — Singleton (один экземпляр на приложение)
+            // Entity Framework Core – DbContext
+            services.AddDbContext<PhoneBookContext>();
+
+            // Сервисы — Singleton
             services.AddSingleton<IDialogService, DialogService>();
             services.AddSingleton<INavigationService, NavigationService>();
 
-            // Экраны (ViewModel) — Transient (новый экземпляр при навигации)
+            // ViewModels — Transient
             services.AddTransient<ContactsListViewModel>();
             services.AddTransient<ContactEditViewModel>();
             services.AddTransient<AboutViewModel>();
 
-            // Shell ViewModel — Singleton (управляет навигацией всего приложения)
+            // Shell ViewModel — Singleton
             services.AddSingleton<MainWindowViewModel>();
 
-            // Главное окно — Singleton с ручной инъекцией DataContext
+            // Главное окно
             services.AddSingleton<MainWindow>(sp =>
             {
                 var window = new MainWindow();
