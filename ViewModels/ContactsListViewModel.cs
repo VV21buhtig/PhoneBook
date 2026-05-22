@@ -1,21 +1,16 @@
 ﻿using System.Collections.ObjectModel;
 using System.Linq;
 using System.Windows.Input;
+using Microsoft.EntityFrameworkCore;
 using PhoneBook.Data;
-using PhoneBook.Models;
 using PhoneBook.Services;
-using DbContact = PhoneBook.Data.Contact;      // псевдоним для сущности БД
 
 namespace PhoneBook.ViewModels
 {
-    /// <summary>
-    /// ViewModel экрана списка контактов.
-    /// Загружает контакты из базы данных при создании.
-    /// Зарегистрирован как Transient: новый экземпляр при каждом переходе.
-    /// </summary>
     public class ContactsListViewModel : ObservableObject
     {
-        public ObservableCollection<Models.Contact> Contacts { get; }
+        public ObservableCollection<Data.Contact> Contacts { get; private set; }
+
         private readonly INavigationService _navigation;
         private readonly IDialogService _dialogService;
         private readonly PhoneBookContext _context;
@@ -34,8 +29,8 @@ namespace PhoneBook.ViewModels
             set => Set(ref _phone, value);
         }
 
-        private Models.Contact? _selectedContact;
-        public Models.Contact? SelectedContact
+        private Data.Contact? _selectedContact;
+        public Data.Contact? SelectedContact
         {
             get => _selectedContact;
             set => Set(ref _selectedContact, value);
@@ -45,54 +40,91 @@ namespace PhoneBook.ViewModels
         public ICommand DeleteCommand { get; }
         public ICommand EditCommand { get; }
 
-        public ContactsListViewModel(INavigationService navigation, IDialogService dialogService, PhoneBookContext context)
+        public ContactsListViewModel(
+            INavigationService navigation,
+            IDialogService dialogService,
+            PhoneBookContext context)
         {
             _navigation = navigation;
             _dialogService = dialogService;
             _context = context;
 
-            // Загрузка контактов из БД при запуске (только чтение)
-            var dbContacts = _context.Contacts.ToList();
-            Contacts = new ObservableCollection<Models.Contact>(
-                dbContacts.Select(c => new Models.Contact(c.Name, c.Phone)));
+            LoadContacts();
 
             AddCommand = new RelayCommand(AddContact);
-            DeleteCommand = new RelayCommand<Models.Contact?>(DeleteContact);
-            EditCommand = new RelayCommand<Models.Contact?>(EditContact);
+            DeleteCommand = new RelayCommand<Data.Contact?>(DeleteContact);
+            EditCommand = new RelayCommand<Data.Contact?>(EditContact);
+        }
+
+        private void LoadContacts()
+        {
+            var dbContacts = _context.Contacts.ToList();
+            Contacts = new ObservableCollection<Data.Contact>(dbContacts);
+            OnPropertyChanged(nameof(Contacts));
         }
 
         private void AddContact()
         {
-            if (Contacts.Any(c => c.Phone == Phone))
+            if (string.IsNullOrWhiteSpace(Name))
+            {
+                _dialogService.ShowWarning("Введите имя контакта", "Ошибка");
+                return;
+            }
+            if (string.IsNullOrWhiteSpace(Phone))
+            {
+                _dialogService.ShowWarning("Введите номер телефона", "Ошибка");
+                return;
+            }
+
+            bool exists = _context.Contacts.Any(c => c.Phone == Phone);
+            if (exists)
             {
                 _dialogService.ShowWarning("Контакт с таким номером уже существует!", "Дубликат");
                 return;
             }
 
-            var contact = new Models.Contact(Name, Phone);
-            if (!contact.IsValid)
+            var newContact = new Data.Contact
             {
-                _dialogService.ShowError(contact.ValidationError ?? "Ошибка валидации", "Некорректные данные");
-                return;
-            }
+                Name = Name,
+                Phone = Phone
+            };
 
-            Contacts.Add(contact);
-            Name = string.Empty;
-            Phone = string.Empty;
-            _dialogService.ShowInfo($"Контакт '{contact.Name}' успешно добавлен", "Успех");
+            try
+            {
+                _context.Contacts.Add(newContact);
+                _context.SaveChanges();
+                Contacts.Add(newContact);
+                Name = string.Empty;
+                Phone = string.Empty;
+                _dialogService.ShowInfo("Контакт успешно добавлен", "Успех");
+            }
+            catch (Exception ex)
+            {
+                _dialogService.ShowError($"Ошибка при сохранении: {ex.Message}", "Ошибка БД");
+            }
         }
 
-        private void DeleteContact(Models.Contact? contact)
+        private void DeleteContact(Data.Contact? contact)
         {
             if (contact == null) return;
+
             if (!_dialogService.ShowConfirmation($"Удалить контакт '{contact.Name}'?", "Подтверждение"))
                 return;
 
-            Contacts.Remove(contact);
-            _dialogService.ShowInfo("Контакт удалён", "Успех");
+            try
+            {
+                _context.Contacts.Remove(contact);
+                _context.SaveChanges();
+                Contacts.Remove(contact);
+                _dialogService.ShowInfo("Контакт удалён", "Успех");
+            }
+            catch (Exception ex)
+            {
+                _dialogService.ShowError($"Ошибка при удалении: {ex.Message}", "Ошибка БД");
+            }
         }
 
-        private void EditContact(Models.Contact? contact)
+        private void EditContact(Data.Contact? contact)
         {
             if (contact == null) return;
             _navigation.NavigateTo<ContactEditViewModel>(contact);

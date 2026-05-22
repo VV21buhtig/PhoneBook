@@ -1,18 +1,17 @@
 ﻿using System.Windows.Input;
-using PhoneBook.Models;
+using Microsoft.EntityFrameworkCore;
+using PhoneBook.Data;
 using PhoneBook.Services;
 
 namespace PhoneBook.ViewModels
 {
-    /// <summary>
-    /// ViewModel экрана редактирования контакта.
-    /// Реализует INavigationAware для получения контакта при навигации.
-    /// Зарегистрирован как Transient.
-    /// </summary>
     public class ContactEditViewModel : ObservableObject, INavigationAware
     {
         private readonly INavigationService _navigation;
-        private Contact _contact = null!;
+        private readonly IDialogService _dialogService;
+        private readonly PhoneBookContext _context;
+
+        private Data.Contact _contact = null!;
 
         private string _editName = string.Empty;
         public string EditName
@@ -31,20 +30,22 @@ namespace PhoneBook.ViewModels
         public ICommand SaveCommand { get; }
         public ICommand CancelCommand { get; }
 
-        public ContactEditViewModel(INavigationService navigation)
+        public ContactEditViewModel(
+            INavigationService navigation,
+            IDialogService dialogService,
+            PhoneBookContext context)
         {
             _navigation = navigation;
+            _dialogService = dialogService;
+            _context = context;
+
             SaveCommand = new RelayCommand(SaveContact);
             CancelCommand = new RelayCommand(CancelEdit);
         }
 
-        /// <summary>
-        /// Вызывается автоматически при навигации на этот экран.
-        /// Получает контакт из параметра и инициализирует поля редактирования.
-        /// </summary>
         public void OnNavigatedTo(object? parameter)
         {
-            if (parameter is Contact contact)
+            if (parameter is Data.Contact contact)
             {
                 _contact = contact;
                 EditName = contact.Name;
@@ -54,9 +55,22 @@ namespace PhoneBook.ViewModels
 
         private void SaveContact()
         {
+            if (_contact == null) return;
+
             _contact.Name = EditName;
             _contact.Phone = EditPhone;
-            _navigation.NavigateTo<ContactsListViewModel>();
+
+            try
+            {
+                _context.Entry(_contact).State = EntityState.Modified;
+                _context.SaveChanges();
+                _dialogService.ShowInfo("Контакт сохранён", "Успех");
+                _navigation.NavigateTo<ContactsListViewModel>();
+            }
+            catch (Exception ex)
+            {
+                _dialogService.ShowError($"Ошибка при сохранении: {ex.Message}", "Ошибка БД");
+            }
         }
 
         private void CancelEdit()

@@ -1,4 +1,6 @@
 ﻿using System.Windows;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using PhoneBook.Data;
 using PhoneBook.Services;
@@ -15,24 +17,27 @@ namespace PhoneBook
         {
             base.OnStartup(e);
 
+            var configuration = new ConfigurationBuilder()
+                .SetBasePath(AppContext.BaseDirectory)
+                .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+                .Build();
+
+            var connectionString = configuration.GetConnectionString("DefaultConnection");
+
             var services = new ServiceCollection();
 
-            // Entity Framework Core – DbContext
-            services.AddDbContext<PhoneBookContext>();
+            services.AddDbContext<PhoneBookContext>(options =>
+                options.UseSqlServer(connectionString));
 
-            // Сервисы — Singleton
             services.AddSingleton<IDialogService, DialogService>();
             services.AddSingleton<INavigationService, NavigationService>();
 
-            // ViewModels — Transient
             services.AddTransient<ContactsListViewModel>();
             services.AddTransient<ContactEditViewModel>();
             services.AddTransient<AboutViewModel>();
 
-            // Shell ViewModel — Singleton
             services.AddSingleton<MainWindowViewModel>();
 
-            // Главное окно
             services.AddSingleton<MainWindow>(sp =>
             {
                 var window = new MainWindow();

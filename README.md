@@ -4,22 +4,25 @@
 1. [App.xaml](#appxaml)
 2. [App.xaml.cs](#appxamlcs)
 3. [PhoneBook.csproj](#phonebookcsproj)
-4. [Models](#models)
+4. [Data](#data)
    1. [Contact.cs](#contactcs)
-5. [Services](#services)
+   2. [PhoneBookContext.cs](#phonebookcontextcs)
+5. [Models](#models)
+   1. [Contact.cs](#contactcs)
+6. [Services](#services)
    1. [DialogService.cs](#dialogservicecs)
    2. [IDialogService.cs](#idialogservicecs)
    3. [INavigationAware.cs](#inavigationawarecs)
    4. [INavigationService.cs](#inavigationservicecs)
    5. [NavigationService.cs](#navigationservicecs)
-6. [Viewmodels](#viewmodels)
+7. [Viewmodels](#viewmodels)
    1. [AboutViewModel.cs](#aboutviewmodelcs)
    2. [ContactEditViewModel.cs](#contacteditviewmodelcs)
    3. [ContactsListViewModel.cs](#contactslistviewmodelcs)
    4. [MainWindowViewModel.cs](#mainwindowviewmodelcs)
    5. [ObservableObject.cs](#observableobjectcs)
    6. [RelayCommand.cs](#relaycommandcs)
-7. [Views](#views)
+8. [Views](#views)
    1. [AboutView.xaml](#aboutviewxaml)
    2. [AboutView.xaml.cs](#aboutviewxamlcs)
    3. [ContactEditView.xaml](#contacteditviewxaml)
@@ -65,7 +68,10 @@
 
 ```csharp
 ﻿using System.Windows;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using PhoneBook.Data;
 using PhoneBook.Services;
 using PhoneBook.ViewModels;
 using PhoneBook.Views;
@@ -80,21 +86,27 @@ namespace PhoneBook
         {
             base.OnStartup(e);
 
+            var configuration = new ConfigurationBuilder()
+                .SetBasePath(AppContext.BaseDirectory)
+                .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+                .Build();
+
+            var connectionString = configuration.GetConnectionString("DefaultConnection");
+
             var services = new ServiceCollection();
 
-            // Сервисы — Singleton (один экземпляр на приложение)
+            services.AddDbContext<PhoneBookContext>(options =>
+                options.UseSqlServer(connectionString));
+
             services.AddSingleton<IDialogService, DialogService>();
             services.AddSingleton<INavigationService, NavigationService>();
 
-            // Экраны (ViewModel) — Transient (новый экземпляр при навигации)
             services.AddTransient<ContactsListViewModel>();
             services.AddTransient<ContactEditViewModel>();
             services.AddTransient<AboutViewModel>();
 
-            // Shell ViewModel — Singleton (управляет навигацией всего приложения)
             services.AddSingleton<MainWindowViewModel>();
 
-            // Главное окно — Singleton с ручной инъекцией DataContext
             services.AddSingleton<MainWindow>(sp =>
             {
                 var window = new MainWindow();
@@ -119,6 +131,75 @@ namespace PhoneBook
 ---
 
 ## FILE 3: Contact.cs
+
+<a id='contactcs'></a>
+
+```csharp
+﻿using System;
+using System.Collections.Generic;
+
+namespace PhoneBook.Data;
+
+public partial class Contact
+{
+    public int Id { get; set; }
+
+    public string Name { get; set; } = null!;
+
+    public string Phone { get; set; } = null!;
+}
+```
+
+---
+
+## FILE 4: PhoneBookContext.cs
+
+<a id='phonebookcontextcs'></a>
+
+```csharp
+﻿using System;
+using System.Collections.Generic;
+using Microsoft.EntityFrameworkCore;
+
+namespace PhoneBook.Data;
+
+public partial class PhoneBookContext : DbContext
+{
+    public PhoneBookContext()
+    {
+    }
+
+    public PhoneBookContext(DbContextOptions<PhoneBookContext> options)
+        : base(options)
+    {
+    }
+
+    public virtual DbSet<Contact> Contacts { get; set; }
+
+//    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+//#warning To protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see https://go.microsoft.com/fwlink/?LinkId=723263.
+//        => optionsBuilder.UseSqlServer("Server=LAPTOP-EU7O01O0\\SQLEXPRESS01;Database=PhoneBookDB_Бобков_2407СА2;Trusted_Connection=True;TrustServerCertificate=True;");
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<Contact>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("PK__Contacts__3214EC072ADD423E");
+
+            entity.Property(e => e.Name).HasMaxLength(100);
+            entity.Property(e => e.Phone).HasMaxLength(100);
+        });
+
+        OnModelCreatingPartial(modelBuilder);
+    }
+
+    partial void OnModelCreatingPartial(ModelBuilder modelBuilder);
+}
+```
+
+---
+
+## FILE 5: Contact.cs
 
 <a id='contactcs'></a>
 
@@ -179,28 +260,55 @@ namespace PhoneBook.Models
 
 ---
 
-## FILE 4: PhoneBook.csproj
+## FILE 6: PhoneBook.csproj
 
 <a id='phonebookcsproj'></a>
 
 ```xml
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <OutputType>WinExe</OutputType>
-    <TargetFramework>net8.0-windows</TargetFramework>
-    <Nullable>enable</Nullable>
-    <UseWPF>true</UseWPF>
-    <ImplicitUsings>enable</ImplicitUsings>
-  </PropertyGroup>
-  <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.0" />
-  </ItemGroup>
+	<PropertyGroup>
+		<OutputType>WinExe</OutputType>
+		<TargetFramework>net8.0-windows</TargetFramework>
+		<Nullable>enable</Nullable>
+		<UseWPF>true</UseWPF>
+		<ImplicitUsings>enable</ImplicitUsings>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+		<PackageReference Include="FontAwesome.Sharp" Version="6.6.0" />
+		<PackageReference Include="MaterialDesignColors" Version="5.2.1" />
+		<PackageReference Include="MaterialDesignThemes" Version="5.2.1" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.0" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.0">
+			<PrivateAssets>all</PrivateAssets>
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>
+		<PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="8.0.0" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="8.0.0">
+			<PrivateAssets>all</PrivateAssets>
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>
+		<PackageReference Include="Microsoft.Extensions.Configuration" Version="8.0.0" />
+		<PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="8.0.0" />
+		<PackageReference Include="Microsoft.Extensions.Configuration.FileExtensions" Version="8.0.0" />
+		<PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="8.0.0" />
+		<PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.0" />
+		<PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.0" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <Folder Include="Data\" />
+		<None Update="appsettings.json">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
+	</ItemGroup>
 </Project>
 ```
 
 ---
 
-## FILE 5: DialogService.cs
+## FILE 7: DialogService.cs
 
 <a id='dialogservicecs'></a>
 
@@ -228,7 +336,7 @@ namespace PhoneBook.Services
 
 ---
 
-## FILE 6: IDialogService.cs
+## FILE 8: IDialogService.cs
 
 <a id='idialogservicecs'></a>
 
@@ -247,7 +355,7 @@ namespace PhoneBook.Services
 
 ---
 
-## FILE 7: INavigationAware.cs
+## FILE 9: INavigationAware.cs
 
 <a id='inavigationawarecs'></a>
 
@@ -271,7 +379,7 @@ namespace PhoneBook.Services
 
 ---
 
-## FILE 8: INavigationService.cs
+## FILE 10: INavigationService.cs
 
 <a id='inavigationservicecs'></a>
 
@@ -303,7 +411,7 @@ namespace PhoneBook.Services
 
 ---
 
-## FILE 9: NavigationService.cs
+## FILE 11: NavigationService.cs
 
 <a id='navigationservicecs'></a>
 
@@ -359,7 +467,7 @@ namespace PhoneBook.Services
 
 ---
 
-## FILE 10: AboutViewModel.cs
+## FILE 12: AboutViewModel.cs
 
 <a id='aboutviewmodelcs'></a>
 
@@ -373,36 +481,35 @@ namespace PhoneBook.Services
     /// </summary>
     public class AboutViewModel : ObservableObject
     {
-        public string AppName => "Телефонная книга MVVM";
-        public string Version => "ЛАБ 11 (With Navigation)";
-        public string Author => "Выполнил: Бобков М.С группа 2407са2";
-        public string Description => "Приложение демонстрирует применение паттерна MVVM с навигацией ViewModel-First.";
+        public string AppName => "Телефонная книга - PhoneBook";
+        public string Version => "ЛАБ 13 (.NET. CRUD)";
+        public string Author => "Выполнил: Бобков М.С группа 2407СА2";
+        public string Description => "Entity Framework Core";
     }
 }
 ```
 
 ---
 
-## FILE 11: ContactEditViewModel.cs
+## FILE 13: ContactEditViewModel.cs
 
 <a id='contacteditviewmodelcs'></a>
 
 ```csharp
 ﻿using System.Windows.Input;
-using PhoneBook.Models;
+using Microsoft.EntityFrameworkCore;
+using PhoneBook.Data;
 using PhoneBook.Services;
 
 namespace PhoneBook.ViewModels
 {
-    /// <summary>
-    /// ViewModel экрана редактирования контакта.
-    /// Реализует INavigationAware для получения контакта при навигации.
-    /// Зарегистрирован как Transient.
-    /// </summary>
     public class ContactEditViewModel : ObservableObject, INavigationAware
     {
         private readonly INavigationService _navigation;
-        private Contact _contact = null!;
+        private readonly IDialogService _dialogService;
+        private readonly PhoneBookContext _context;
+
+        private Data.Contact _contact = null!;
 
         private string _editName = string.Empty;
         public string EditName
@@ -421,20 +528,22 @@ namespace PhoneBook.ViewModels
         public ICommand SaveCommand { get; }
         public ICommand CancelCommand { get; }
 
-        public ContactEditViewModel(INavigationService navigation)
+        public ContactEditViewModel(
+            INavigationService navigation,
+            IDialogService dialogService,
+            PhoneBookContext context)
         {
             _navigation = navigation;
+            _dialogService = dialogService;
+            _context = context;
+
             SaveCommand = new RelayCommand(SaveContact);
             CancelCommand = new RelayCommand(CancelEdit);
         }
 
-        /// <summary>
-        /// Вызывается автоматически при навигации на этот экран.
-        /// Получает контакт из параметра и инициализирует поля редактирования.
-        /// </summary>
         public void OnNavigatedTo(object? parameter)
         {
-            if (parameter is Contact contact)
+            if (parameter is Data.Contact contact)
             {
                 _contact = contact;
                 EditName = contact.Name;
@@ -444,9 +553,22 @@ namespace PhoneBook.ViewModels
 
         private void SaveContact()
         {
+            if (_contact == null) return;
+
             _contact.Name = EditName;
             _contact.Phone = EditPhone;
-            _navigation.NavigateTo<ContactsListViewModel>();
+
+            try
+            {
+                _context.Entry(_contact).State = EntityState.Modified;
+                _context.SaveChanges();
+                _dialogService.ShowInfo("Контакт сохранён", "Успех");
+                _navigation.NavigateTo<ContactsListViewModel>();
+            }
+            catch (Exception ex)
+            {
+                _dialogService.ShowError($"Ошибка при сохранении: {ex.Message}", "Ошибка БД");
+            }
         }
 
         private void CancelEdit()
@@ -459,7 +581,7 @@ namespace PhoneBook.ViewModels
 
 ---
 
-## FILE 12: ContactsListViewModel.cs
+## FILE 14: ContactsListViewModel.cs
 
 <a id='contactslistviewmodelcs'></a>
 
@@ -467,20 +589,19 @@ namespace PhoneBook.ViewModels
 ﻿using System.Collections.ObjectModel;
 using System.Linq;
 using System.Windows.Input;
-using PhoneBook.Models;
+using Microsoft.EntityFrameworkCore;
+using PhoneBook.Data;
 using PhoneBook.Services;
 
 namespace PhoneBook.ViewModels
 {
-    /// <summary>
-    /// ViewModel экрана списка контактов.
-    /// Зарегистрирован как Transient: новый экземпляр при каждом переходе.
-    /// </summary>
     public class ContactsListViewModel : ObservableObject
     {
-        public ObservableCollection<Contact> Contacts { get; }
+        public ObservableCollection<Data.Contact> Contacts { get; private set; }
+
         private readonly INavigationService _navigation;
         private readonly IDialogService _dialogService;
+        private readonly PhoneBookContext _context;
 
         private string _name = string.Empty;
         public string Name
@@ -496,8 +617,8 @@ namespace PhoneBook.ViewModels
             set => Set(ref _phone, value);
         }
 
-        private Contact? _selectedContact;
-        public Contact? SelectedContact
+        private Data.Contact? _selectedContact;
+        public Data.Contact? SelectedContact
         {
             get => _selectedContact;
             set => Set(ref _selectedContact, value);
@@ -507,52 +628,93 @@ namespace PhoneBook.ViewModels
         public ICommand DeleteCommand { get; }
         public ICommand EditCommand { get; }
 
-        public ContactsListViewModel(INavigationService navigation, IDialogService dialogService)
+        public ContactsListViewModel(
+            INavigationService navigation,
+            IDialogService dialogService,
+            PhoneBookContext context)
         {
             _navigation = navigation;
             _dialogService = dialogService;
-            Contacts = new ObservableCollection<Contact>();
+            _context = context;
+
+            LoadContacts();
 
             AddCommand = new RelayCommand(AddContact);
-            DeleteCommand = new RelayCommand<Contact?>(DeleteContact);
-            EditCommand = new RelayCommand<Contact?>(EditContact);
+            DeleteCommand = new RelayCommand<Data.Contact?>(DeleteContact);
+            EditCommand = new RelayCommand<Data.Contact?>(EditContact);
+        }
+
+        private void LoadContacts()
+        {
+            var dbContacts = _context.Contacts.ToList();
+            Contacts = new ObservableCollection<Data.Contact>(dbContacts);
+            OnPropertyChanged(nameof(Contacts));
         }
 
         private void AddContact()
         {
-            if (Contacts.Any(c => c.Phone == Phone))
+            if (string.IsNullOrWhiteSpace(Name))
+            {
+                _dialogService.ShowWarning("Введите имя контакта", "Ошибка");
+                return;
+            }
+            if (string.IsNullOrWhiteSpace(Phone))
+            {
+                _dialogService.ShowWarning("Введите номер телефона", "Ошибка");
+                return;
+            }
+
+            bool exists = _context.Contacts.Any(c => c.Phone == Phone);
+            if (exists)
             {
                 _dialogService.ShowWarning("Контакт с таким номером уже существует!", "Дубликат");
                 return;
             }
 
-            var contact = new Contact(Name, Phone);
-            if (!contact.IsValid)
+            var newContact = new Data.Contact
             {
-                _dialogService.ShowError(contact.ValidationError ?? "Ошибка валидации", "Некорректные данные");
-                return;
-            }
+                Name = Name,
+                Phone = Phone
+            };
 
-            Contacts.Add(contact);
-            Name = string.Empty;
-            Phone = string.Empty;
-            _dialogService.ShowInfo($"Контакт '{contact.Name}' успешно добавлен", "Успех");
+            try
+            {
+                _context.Contacts.Add(newContact);
+                _context.SaveChanges();
+                Contacts.Add(newContact);
+                Name = string.Empty;
+                Phone = string.Empty;
+                _dialogService.ShowInfo("Контакт успешно добавлен", "Успех");
+            }
+            catch (Exception ex)
+            {
+                _dialogService.ShowError($"Ошибка при сохранении: {ex.Message}", "Ошибка БД");
+            }
         }
 
-        private void DeleteContact(Contact? contact)
+        private void DeleteContact(Data.Contact? contact)
         {
             if (contact == null) return;
+
             if (!_dialogService.ShowConfirmation($"Удалить контакт '{contact.Name}'?", "Подтверждение"))
                 return;
 
-            Contacts.Remove(contact);
-            _dialogService.ShowInfo("Контакт удалён", "Успех");
+            try
+            {
+                _context.Contacts.Remove(contact);
+                _context.SaveChanges();
+                Contacts.Remove(contact);
+                _dialogService.ShowInfo("Контакт удалён", "Успех");
+            }
+            catch (Exception ex)
+            {
+                _dialogService.ShowError($"Ошибка при удалении: {ex.Message}", "Ошибка БД");
+            }
         }
 
-        private void EditContact(Contact? contact)
+        private void EditContact(Data.Contact? contact)
         {
             if (contact == null) return;
-            // Навигация к экрану редактирования с передачей контакта
             _navigation.NavigateTo<ContactEditViewModel>(contact);
         }
     }
@@ -561,7 +723,7 @@ namespace PhoneBook.ViewModels
 
 ---
 
-## FILE 13: MainWindowViewModel.cs
+## FILE 15: MainWindowViewModel.cs
 
 <a id='mainwindowviewmodelcs'></a>
 
@@ -598,7 +760,7 @@ namespace PhoneBook.ViewModels
 
 ---
 
-## FILE 14: ObservableObject.cs
+## FILE 16: ObservableObject.cs
 
 <a id='observableobjectcs'></a>
 
@@ -632,7 +794,7 @@ namespace PhoneBook.ViewModels
 
 ---
 
-## FILE 15: RelayCommand.cs
+## FILE 17: RelayCommand.cs
 
 <a id='relaycommandcs'></a>
 
@@ -673,7 +835,7 @@ namespace PhoneBook.ViewModels
 
 ---
 
-## FILE 16: AboutView.xaml
+## FILE 18: AboutView.xaml
 
 <a id='aboutviewxaml'></a>
 
@@ -696,7 +858,7 @@ namespace PhoneBook.ViewModels
 
 ---
 
-## FILE 17: AboutView.xaml.cs
+## FILE 19: AboutView.xaml.cs
 
 <a id='aboutviewxamlcs'></a>
 
@@ -717,7 +879,7 @@ namespace PhoneBook.Views
 
 ---
 
-## FILE 18: ContactEditView.xaml
+## FILE 20: ContactEditView.xaml
 
 <a id='contacteditviewxaml'></a>
 
@@ -750,7 +912,7 @@ namespace PhoneBook.Views
 
 ---
 
-## FILE 19: ContactEditView.xaml.cs
+## FILE 21: ContactEditView.xaml.cs
 
 <a id='contacteditviewxamlcs'></a>
 
@@ -771,7 +933,7 @@ namespace PhoneBook.Views
 
 ---
 
-## FILE 20: ContactsListView.xaml
+## FILE 22: ContactsListView.xaml
 
 <a id='contactslistviewxaml'></a>
 
@@ -828,7 +990,7 @@ namespace PhoneBook.Views
 
 ---
 
-## FILE 21: ContactsListView.xaml.cs
+## FILE 23: ContactsListView.xaml.cs
 
 <a id='contactslistviewxamlcs'></a>
 
@@ -859,7 +1021,7 @@ namespace PhoneBook.Views
 
 ---
 
-## FILE 22: MainWindow.xaml
+## FILE 24: MainWindow.xaml
 
 <a id='mainwindowxaml'></a>
 
@@ -885,7 +1047,7 @@ namespace PhoneBook.Views
 
 ---
 
-## FILE 23: MainWindow.xaml.cs
+## FILE 25: MainWindow.xaml.cs
 
 <a id='mainwindowxamlcs'></a>
 

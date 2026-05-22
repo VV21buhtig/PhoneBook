@@ -7,9 +7,9 @@
     /// </summary>
     public class AboutViewModel : ObservableObject
     {
-        public string AppName => "Телефонная книга MVVM";
-        public string Version => "ЛАБ 11 (With Navigation)";
-        public string Author => "Выполнил: Бобков М.С группа 2407са2";
-        public string Description => "Приложение демонстрирует применение паттерна MVVM с навигацией ViewModel-First.";
+        public string AppName => "Телефонная книга - PhoneBook";
+        public string Version => "ЛАБ 13 (.NET. CRUD)";
+        public string Author => "Выполнил: Бобков М.С группа 2407СА2";
+        public string Description => "Entity Framework Core";
     }
 }
