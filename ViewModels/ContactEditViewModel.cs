@@ -9,10 +9,10 @@ namespace PhoneBook.ViewModels
     {
         private readonly INavigationService _navigation;
         private readonly IDialogService _dialogService;
-        private readonly PhoneBookContext _context;
+        private readonly IDbContextFactory<PhoneBookContext> _contextFactory;
 
         private Data.Contact _contact = null!;
-
+        private int _contactId;
         private string _editName = string.Empty;
         public string EditName
         {
@@ -33,12 +33,11 @@ namespace PhoneBook.ViewModels
         public ContactEditViewModel(
             INavigationService navigation,
             IDialogService dialogService,
-            PhoneBookContext context)
+            IDbContextFactory<PhoneBookContext> contextFactory)
         {
             _navigation = navigation;
             _dialogService = dialogService;
-            _context = context;
-
+            _contextFactory = contextFactory;
             SaveCommand = new RelayCommand(SaveContact);
             CancelCommand = new RelayCommand(CancelEdit);
         }
@@ -47,7 +46,7 @@ namespace PhoneBook.ViewModels
         {
             if (parameter is Data.Contact contact)
             {
-                _contact = contact;
+                _contactId = contact.Id;
                 EditName = contact.Name;
                 EditPhone = contact.Phone;
             }
@@ -55,15 +54,26 @@ namespace PhoneBook.ViewModels
 
         private void SaveContact()
         {
-            if (_contact == null) return;
+            if (_contactId == 0) return;
 
-            _contact.Name = EditName;
-            _contact.Phone = EditPhone;
+            // FETCH: находим сущность в новом контексте
+            using var context = _contextFactory.CreateDbContext();
+            var contactToUpdate = context.Contacts.Find(_contactId);
 
+            if (contactToUpdate == null)
+            {
+                _dialogService.ShowError("Контакт не найден в базе данных", "Ошибка");
+                return;
+            }
+
+            // MODIFY: обновляем свойства
+            contactToUpdate.Name = EditName;
+            contactToUpdate.Phone = EditPhone;
+
+            // SAVE: сохраняем
             try
             {
-                _context.Entry(_contact).State = EntityState.Modified;
-                _context.SaveChanges();
+                context.SaveChanges();
                 _dialogService.ShowInfo("Контакт сохранён", "Успех");
                 _navigation.NavigateTo<ContactsListViewModel>();
             }

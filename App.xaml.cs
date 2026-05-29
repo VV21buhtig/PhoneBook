@@ -26,7 +26,7 @@ namespace PhoneBook
 
             var services = new ServiceCollection();
 
-            services.AddDbContext<PhoneBookContext>(options =>
+            services.AddDbContextFactory<PhoneBookContext>(options =>
                 options.UseSqlServer(connectionString));
 
             services.AddSingleton<IDialogService, DialogService>();

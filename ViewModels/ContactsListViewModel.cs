@@ -13,7 +13,7 @@ namespace PhoneBook.ViewModels
 
         private readonly INavigationService _navigation;
         private readonly IDialogService _dialogService;
-        private readonly PhoneBookContext _context;
+        private readonly IDbContextFactory<PhoneBookContext> _contextFactory;
 
         private string _name = string.Empty;
         public string Name
@@ -41,24 +41,20 @@ namespace PhoneBook.ViewModels
         public ICommand EditCommand { get; }
 
         public ContactsListViewModel(
-            INavigationService navigation,
-            IDialogService dialogService,
-            PhoneBookContext context)
+          INavigationService navigation,
+          IDialogService dialogService,
+          IDbContextFactory<PhoneBookContext> contextFactory)
         {
             _navigation = navigation;
             _dialogService = dialogService;
-            _context = context;
-
+            _contextFactory = contextFactory;
             LoadContacts();
-
-            AddCommand = new RelayCommand(AddContact);
-            DeleteCommand = new RelayCommand<Data.Contact?>(DeleteContact);
-            EditCommand = new RelayCommand<Data.Contact?>(EditContact);
         }
 
         private void LoadContacts()
         {
-            var dbContacts = _context.Contacts.ToList();
+            using var context = _contextFactory.CreateDbContext();
+            var dbContacts = context.Contacts.ToList();
             Contacts = new ObservableCollection<Data.Contact>(dbContacts);
             OnPropertyChanged(nameof(Contacts));
         }
@@ -76,7 +72,9 @@ namespace PhoneBook.ViewModels
                 return;
             }
 
-            bool exists = _context.Contacts.Any(c => c.Phone == Phone);
+            using var context = _contextFactory.CreateDbContext();
+
+            bool exists = context.Contacts.Any(c => c.Phone == Phone);
             if (exists)
             {
                 _dialogService.ShowWarning("Контакт с таким номером уже существует!", "Дубликат");
@@ -91,9 +89,9 @@ namespace PhoneBook.ViewModels
 
             try
             {
-                _context.Contacts.Add(newContact);
-                _context.SaveChanges();
-                Contacts.Add(newContact);
+                context.Contacts.Add(newContact);
+                context.SaveChanges();
+                LoadContacts();  // reload
                 Name = string.Empty;
                 Phone = string.Empty;
                 _dialogService.ShowInfo("Контакт успешно добавлен", "Успех");
@@ -111,12 +109,18 @@ namespace PhoneBook.ViewModels
             if (!_dialogService.ShowConfirmation($"Удалить контакт '{contact.Name}'?", "Подтверждение"))
                 return;
 
+            using var context = _contextFactory.CreateDbContext();
+
             try
             {
-                _context.Contacts.Remove(contact);
-                _context.SaveChanges();
-                Contacts.Remove(contact);
-                _dialogService.ShowInfo("Контакт удалён", "Успех");
+                var contactToDelete = context.Contacts.Find(contact.Id);
+                if (contactToDelete != null)
+                {
+                    context.Contacts.Remove(contactToDelete);
+                    context.SaveChanges();
+                    LoadContacts();  // перезагружаем список
+                    _dialogService.ShowInfo("Контакт удалён", "Успех");
+                }
             }
             catch (Exception ex)
             {
